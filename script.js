@@ -1,6 +1,8 @@
+console.log("CraveCraft JavaScript is running!");
 const recipes = [
   {
     name: "Chicken Quesadillas",
+    image: "images/Chicken Quesadillas.jfif",
     ingredients: ["chicken", "tortilla", "cheese", "onion"],
     time: 20,
     tags: ["comfort", "quick"],
@@ -13,7 +15,8 @@ const recipes = [
   },
   {
     name: "Egg Fried Rice",
-    ingredients: ["rice", "eggs", "onion", "peas"],
+    image: "images/egg fried rice.jfif",
+    ingredients: ["rice", "eggs", "onion", "carrot", "peas", "soy sauce"],
     time: 15,
     tags: ["comfort", "quick"],
     description: "A quick meal for leftover rice.",
@@ -25,6 +28,7 @@ const recipes = [
   },
   {
     name: "Spicy Chicken Rice",
+    image: "images/spicy chicken rice.jfif",
     ingredients: ["chicken", "rice", "onion", "tomato", "chilli"],
     time: 30,
     tags: ["spicy", "comfort"],
@@ -37,6 +41,7 @@ const recipes = [
   },
   {
     name: "Tomato Egg Toast",
+    image: "images/tomato egg toast.jfif",
     ingredients: ["eggs", "tomato", "bread", "cheese"],
     time: 10,
     tags: ["quick", "comfort"],
@@ -49,6 +54,7 @@ const recipes = [
   },
   {
     name: "Fresh Chicken Salad",
+    image: "images/grilled chicken salad.jfif",
     ingredients: ["chicken", "lettuce", "tomato", "cucumber"],
     time: 25,
     tags: ["fresh"],
@@ -61,6 +67,7 @@ const recipes = [
   },
   {
     name: "Spicy Egg Wrap",
+    image: "images/spicy egg wrap.jfif",
     ingredients: ["eggs", "tortilla", "onion", "chilli"],
     time: 12,
     tags: ["spicy", "quick"],
@@ -73,6 +80,7 @@ const recipes = [
   },
   {
     name: "Cheesy Tomato Pasta",
+    image: "images/cheesy tomato pasta.jfif",
     ingredients: ["pasta", "tomato", "cheese", "onion"],
     time: 25,
     tags: ["comfort"],
@@ -85,6 +93,7 @@ const recipes = [
   },
   {
     name: "Chickpea Salad",
+    image: "images/chickpea salad.jfif",
     ingredients: ["chickpeas", "tomato", "cucumber", "onion"],
     time: 10,
     tags: ["fresh", "quick"],
@@ -188,7 +197,11 @@ function findMatchingRecipes() {
     const card = document.createElement("article");
     card.className =
       "rounded-xl border border-neutral-800 bg-[#24211e] p-5 space-y-3";
-
+    const image = document.createElement("img");
+    image.src = recipe.image;
+    image.alt = recipe.name;
+    image.className = "w-full h-48 object-cover rounded-lg";
+    image.loading = "lazy";
     const title = document.createElement("h3");
     title.className = "text-xl text-white";
     title.textContent = recipe.name;
@@ -242,6 +255,7 @@ function findMatchingRecipes() {
     });
 
     card.append(
+      image,
       title,
       description,
       meta,
@@ -256,3 +270,205 @@ function findMatchingRecipes() {
 }
 
 findButton.addEventListener("click", findMatchingRecipes);
+
+
+const signupForm = document.getElementById("signupForm");
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
+
+const authScreen = document.getElementById("screen-auth");
+const dashboardScreen = document.getElementById("screen-dashboard");
+const dashboardGreeting = document.getElementById("dashboardGreeting");
+
+const signInTab = document.getElementById("signInTab");
+const createAccountTab = document.getElementById("createAccountTab");
+const authSubmitButton = document.getElementById("authSubmitButton");
+const authMessage = document.getElementById("authMessage");
+
+const homeLink = document.getElementById("homeLink");
+const signOutButton = document.getElementById("signOutButton");
+
+let authMode = "signup";
+
+function showDashboard(username) {
+  dashboardGreeting.textContent = `Hello, ${username}`;
+  authScreen.classList.add("hidden");
+  dashboardScreen.classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showAuth() {
+  dashboardScreen.classList.add("hidden");
+  authScreen.classList.remove("hidden");
+  authMessage.textContent = "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  authMessage.textContent = "";
+
+  const isSignup = mode === "signup";
+
+  authSubmitButton.textContent = isSignup
+    ? "Create account"
+    : "Sign in";
+
+  createAccountTab.className = isSignup
+    ? "text-white border-b-2 border-white pb-2 font-medium"
+    : "text-neutral-500 hover:text-white pb-2";
+
+  signInTab.className = isSignup
+    ? "text-neutral-500 hover:text-white pb-2"
+    : "text-white border-b-2 border-white pb-2 font-medium";
+}
+
+createAccountTab.addEventListener("click", () => {
+  setAuthMode("signup");
+});
+
+signInTab.addEventListener("click", () => {
+  setAuthMode("signin");
+});
+
+signupForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+
+  if (!username || !password) {
+    authMessage.textContent = "Please enter your username and password.";
+    return;
+  }
+
+  // Demo accounts are stored in this browser only.
+  const accounts = JSON.parse(
+    localStorage.getItem("cravecraftAccounts") || "{}"
+  );
+
+  const accountKey = username.toLowerCase();
+
+  if (authMode === "signup") {
+    if (accounts[accountKey]) {
+      authMessage.textContent =
+        "That username already exists. Please sign in instead.";
+      return;
+    }
+
+    accounts[accountKey] = {
+      username: username,
+      password: password
+    };
+
+    localStorage.setItem(
+      "cravecraftAccounts",
+      JSON.stringify(accounts)
+    );
+  } else {
+    const account = accounts[accountKey];
+
+    if (!account || account.password !== password) {
+      authMessage.textContent =
+        "Incorrect username or password. Please try again.";
+      return;
+    }
+  }
+
+  localStorage.setItem("cravecraftCurrentUser", username);
+  showDashboard(username);
+});
+
+homeLink.addEventListener("click", function (event) {
+  event.preventDefault();
+
+  const username = localStorage.getItem("cravecraftCurrentUser");
+
+  if (username) {
+    showDashboard(username);
+  } else {
+    showAuth();
+  }
+});
+
+signOutButton.addEventListener("click", function () {
+  localStorage.removeItem("cravecraftCurrentUser");
+  signupForm.reset();
+  setAuthMode("signin");
+  showAuth();
+});
+
+// Restore the dashboard if the user refreshes while signed in.
+const savedUsername = localStorage.getItem("cravecraftCurrentUser");
+
+if (savedUsername) {
+  showDashboard(savedUsername);
+} else {
+  showAuth();
+}
+
+setAuthMode("signup");
+const chatToggle = document.getElementById("cc-ai-toggle");
+const chatPanel = document.getElementById("cc-ai-panel");
+const chatClose = document.getElementById("cc-ai-close");
+const chatForm = document.getElementById("cc-ai-form");
+const chatInput = document.getElementById("cc-ai-input");
+const chatMessages = document.getElementById("cc-ai-messages");
+const chatSend = document.getElementById("cc-ai-send");
+
+chatToggle.addEventListener("click", () => {
+  chatPanel.hidden = false;
+  chatToggle.hidden = true;
+  chatInput.focus();
+});
+
+chatClose.addEventListener("click", () => {
+  chatPanel.hidden = true;
+  chatToggle.hidden = false;
+});
+
+function addChatMessage(text, className) {
+  const message = document.createElement("p");
+  message.className = `cc-ai-message ${className}`;
+  message.textContent = text;
+  chatMessages.appendChild(message);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  return message;
+}
+
+chatForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const question = chatInput.value.trim();
+  if (!question) return;
+
+  addChatMessage(question, "cc-ai-user");
+  chatInput.value = "";
+  chatSend.disabled = true;
+
+  const thinkingMessage = addChatMessage("Thinking…", "cc-ai-assistant");
+
+  try {
+    const response = await fetch("http://127.0.0.1:3001/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: question })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "The server could not answer.");
+    }
+
+    thinkingMessage.textContent = data.answer;
+  } catch (error) {
+    thinkingMessage.textContent =
+      "I couldn't reach the AI server. Check that the server is running.";
+    console.error(error);
+  } finally {
+    chatSend.disabled = false;
+    chatInput.focus();
+  }
+});
+
