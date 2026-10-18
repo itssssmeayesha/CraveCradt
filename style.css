@@ -1,0 +1,81 @@
+#cc-ai-chat {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9999;
+  font-family: Arial, sans-serif;
+}
+
+#cc-ai-toggle,
+#cc-ai-send {
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: #e78345;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#cc-ai-panel {
+  width: min(350px, calc(100vw - 40px));
+  height: 430px;
+  margin-bottom: 10px;
+  border: 1px solid #777;
+  border-radius: 14px;
+  background: #242321;
+  color: white;
+  box-shadow: 0 5px 24px #0008;
+  overflow: hidden;
+}
+
+.cc-ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  background: #33312e;
+}
+
+#cc-ai-close {
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+#cc-ai-messages {
+  height: 300px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.cc-ai-message {
+  padding: 10px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+}
+
+.cc-ai-user {
+  margin-left: 35px;
+  background: #514333;
+}
+
+.cc-ai-assistant {
+  margin-right: 25px;
+  background: #393836;
+}
+
+#cc-ai-form {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+}
+
+#cc-ai-input {
+  flex: 1;
+  resize: none;
+  border-radius: 8px;
+  padding: 9px;
+}
