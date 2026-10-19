@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("CraveCraft Hardened Script Running!");
+  console.log("CraveCraft Stable JS Loaded!");
 
   // ----------------------------------------------------
-  // 1. STORAGE & STATE HELPERS
+  // 1. STORAGE & STATE MANAGEMENT
   // ----------------------------------------------------
   function getAppData(username) {
     const allData = JSON.parse(localStorage.getItem("cravecraftAllUsersData") || "{}");
@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   // ----------------------------------------------------
-  // 3. UI SCREEN MANAGEMENT
+  // 3. NAVIGATION & UI SWITCHING
   // ----------------------------------------------------
   const authScreen = document.getElementById("screen-auth");
   const dashboardScreen = document.getElementById("screen-dashboard");
@@ -128,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 4. AUTH & WORKING CLICKABLE ALLERGIES
+  // 4. AUTHENTICATION & FULLY WORKING CLICKABLE ALLERGIES
   // ----------------------------------------------------
   const signupForm = document.getElementById("signupForm");
   const signInTab = document.getElementById("signInTab");
@@ -193,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
   signupForm?.addEventListener("submit", handleAuth);
   authSubmitButton?.addEventListener("click", handleAuth);
 
-  // CLICKABLE ALLERGIES & ADD OPTION
+  // CLICKABLE ALLERGY BUTTONS & CUSTOM ALLERGIES ADDER
   function renderAllergiesUI() {
     const allergyContainer = document.querySelector("#screen-auth .space-y-2.pt-2");
     if (!allergyContainer) return;
@@ -211,8 +211,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     customArea.innerHTML = `
       <div class="flex gap-2">
-        <input type="text" id="addCustomAllergyInput" placeholder="Add custom allergy (e.g., Soy, Shellfish)..." class="bg-[#24211e] border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1">
-        <button type="button" id="addCustomAllergyBtn" class="bg-neutral-800 text-neutral-300 px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-700 cursor-pointer">Add Option</button>
+        <input type="text" id="addCustomAllergyInput" placeholder="Add custom allergy (e.g. Soy, Shellfish)..." class="bg-[#24211e] border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1">
+        <button type="button" id="addCustomAllergyBtn" class="bg-neutral-800 text-neutral-300 px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-700 cursor-pointer">Add</button>
       </div>
       <div class="flex flex-wrap gap-2" id="customAllergyChips">
         ${userData.customAllergies.map((alg, idx) => `
@@ -224,19 +224,26 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
+    // Click handler for preset allergy buttons
     document.querySelectorAll("#screen-auth .flex.flex-wrap.gap-2 button").forEach(btn => {
       btn.setAttribute("type", "button");
+      const text = btn.textContent.trim();
+
+      if (userData.selectedAllergies.includes(text)) {
+        btn.className = "px-4 py-1.5 rounded-full border border-neutral-500 bg-[#ebe3d5] text-[#1a1816] text-xs font-medium cursor-pointer";
+      } else {
+        btn.className = "px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs text-white hover:border-neutral-500 cursor-pointer";
+      }
+
       btn.onclick = (e) => {
         e.preventDefault();
-        const text = btn.textContent.trim();
         if (userData.selectedAllergies.includes(text)) {
           userData.selectedAllergies = userData.selectedAllergies.filter(a => a !== text);
-          btn.className = "px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-500 cursor-pointer";
         } else {
           userData.selectedAllergies.push(text);
-          btn.className = "px-4 py-1.5 rounded-full border border-neutral-500 bg-[#ebe3d5] text-[#1a1816] text-xs font-medium cursor-pointer";
         }
         saveAppData(currentUser, userData);
+        renderAllergiesUI();
       };
     });
 
@@ -283,7 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ----------------------------------------------------
-  // 5. RECIPE FINDER (SUGGESTS BASED ONLY ON TYPING & PANTRY)
+  // 5. RECIPE FINDER
   // ----------------------------------------------------
   function findMatchingRecipes() {
     const ingInput = document.getElementById("ingredients");
@@ -310,7 +317,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const maxTime = Number(maxTimeInput?.value || 60);
     const craving = cravingInput?.value || "any";
 
-    // Strictly match recipes based on typed ingredients + pantry
     const matches = recipes
       .map(r => {
         const matched = r.ingredients.filter(ing => available.some(a => a.includes(ing) || ing.includes(a)));
@@ -364,7 +370,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 6. GUIDED COOKING & CHATBOT TIP REDIRECTION
+  // 6. GUIDED COOKING
   // ----------------------------------------------------
   let activeRecipe = null;
   let currentStep = 0;
@@ -402,7 +408,6 @@ document.addEventListener("DOMContentLoaded", () => {
     showDashboard(localStorage.getItem("cravecraftCurrentUser") || "Chef");
   });
 
-  // REDIRECT TIP TO CHATBOT
   cookScreen?.querySelector(".flex.gap-3.pt-4 button:nth-child(1)")?.addEventListener("click", (e) => {
     e.preventDefault();
     alert("Need a tip or having an issue? Please ask our AI Chatbot in the bottom right corner (🍳 Ask CraveCraft)!");
@@ -423,29 +428,40 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ----------------------------------------------------
-  // 7. FIX FOR SCREEN REVIEW (SCREEN 4) BUTTONS
+  // 7. WORKING REVIEW SCREEN HANDLERS (SAVE & SKIP)
   // ----------------------------------------------------
   function setupReviewScreenHandlers() {
     if (!reviewScreen) return;
 
-    const ratingBtns = reviewScreen.querySelectorAll("button.w-10.h-10");
+    // Rating Buttons 1 to 5
+    const ratingBtns = reviewScreen.querySelectorAll("#reviewRatingGroup button");
     ratingBtns.forEach(btn => {
       btn.onclick = (e) => {
         e.preventDefault();
         ratingBtns.forEach(b => {
-          b.className = "w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400 text-white cursor-pointer";
+          b.className = "w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400 text-white cursor-pointer transition";
         });
-        btn.className = "w-10 h-10 bg-[#ebe3d5] text-[#1a1816] font-medium text-xs cursor-pointer";
+        btn.className = "w-10 h-10 rounded-full bg-[#ebe3d5] text-[#1a1816] font-medium text-xs cursor-pointer transition";
       };
     });
 
-    const actionBtns = reviewScreen.querySelectorAll(".flex.gap-3.pt-4 button");
-    actionBtns.forEach(btn => {
-      btn.onclick = (e) => {
+    // Save Review Button
+    const saveBtn = document.getElementById("saveReviewBtn");
+    if (saveBtn) {
+      saveBtn.onclick = (e) => {
         e.preventDefault();
         finishCooking();
       };
-    });
+    }
+
+    // Skip Button
+    const skipBtn = document.getElementById("skipReviewBtn");
+    if (skipBtn) {
+      skipBtn.onclick = (e) => {
+        e.preventDefault();
+        finishCooking();
+      };
+    }
   }
 
   function finishCooking() {
@@ -470,7 +486,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 8. DASHBOARD CARDS & GALLERY / FORUM
+  // 8. DASHBOARD CARDS & GALLERY / FORUM MODALS
   // ----------------------------------------------------
   const cards = document.querySelectorAll("#screen-dashboard .grid-cols-1.md\\:grid-cols-3 > div");
   if (cards.length >= 3) {
@@ -713,7 +729,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 9. INITIAL LOAD
+  // 9. CHATBOT & INITIAL LOAD
   // ----------------------------------------------------
   const chatToggle = document.getElementById("cc-ai-toggle");
   const chatPanel = document.getElementById("cc-ai-panel");
