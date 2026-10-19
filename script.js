@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("CraveCraft Final Stable JS Initialized!");
+  console.log("CraveCraft Hardened Script Running!");
 
   // ----------------------------------------------------
-  // 1. STORAGE & STATE MANAGEMENT
+  // 1. STORAGE & STATE HELPERS
   // ----------------------------------------------------
   function getAppData(username) {
     const allData = JSON.parse(localStorage.getItem("cravecraftAllUsersData") || "{}");
@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 2. RECIPE DATABASE (Always 4 meals matching criteria)
+  // 2. RECIPE DATABASE
   // ----------------------------------------------------
   const recipes = [
     {
@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   // ----------------------------------------------------
-  // 3. NAVIGATION & UI SWITCHING
+  // 3. UI SCREEN MANAGEMENT
   // ----------------------------------------------------
   const authScreen = document.getElementById("screen-auth");
   const dashboardScreen = document.getElementById("screen-dashboard");
@@ -128,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 4. AUTHENTICATION & CLICKABLE ALLERGIES
+  // 4. AUTH & WORKING CLICKABLE ALLERGIES
   // ----------------------------------------------------
   const signupForm = document.getElementById("signupForm");
   const signInTab = document.getElementById("signInTab");
@@ -193,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
   signupForm?.addEventListener("submit", handleAuth);
   authSubmitButton?.addEventListener("click", handleAuth);
 
-  // CLICKABLE ALLERGY BUTTONS & CUSTOM ALLERGY INPUT
+  // CLICKABLE ALLERGIES & ADD OPTION
   function renderAllergiesUI() {
     const allergyContainer = document.querySelector("#screen-auth .space-y-2.pt-2");
     if (!allergyContainer) return;
@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
     customArea.innerHTML = `
       <div class="flex gap-2">
         <input type="text" id="addCustomAllergyInput" placeholder="Add custom allergy (e.g., Soy, Shellfish)..." class="bg-[#24211e] border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1">
-        <button type="button" id="addCustomAllergyBtn" class="bg-neutral-800 text-neutral-300 px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-700 cursor-pointer">Add</button>
+        <button type="button" id="addCustomAllergyBtn" class="bg-neutral-800 text-neutral-300 px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-700 cursor-pointer">Add Option</button>
       </div>
       <div class="flex flex-wrap gap-2" id="customAllergyChips">
         ${userData.customAllergies.map((alg, idx) => `
@@ -224,7 +224,6 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
-    // Ensure preset allergy buttons are fully clickable
     document.querySelectorAll("#screen-auth .flex.flex-wrap.gap-2 button").forEach(btn => {
       btn.setAttribute("type", "button");
       btn.onclick = (e) => {
@@ -284,7 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ----------------------------------------------------
-  // 5. RECIPE FINDER (ALWAYS SHOWS 4 MEALS, NO TIPS)
+  // 5. RECIPE FINDER (SUGGESTS BASED ONLY ON TYPING & PANTRY)
   // ----------------------------------------------------
   function findMatchingRecipes() {
     const ingInput = document.getElementById("ingredients");
@@ -303,7 +302,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const available = Array.from(new Set([...typed, ...userData.pantryItems.map(i => i.toLowerCase().trim())]));
 
     if (available.length === 0) {
-      if (message) message.textContent = "Please enter ingredients in the box above.";
+      if (message) message.textContent = "Please type ingredients or add items to your pantry stock.";
       results.replaceChildren();
       return;
     }
@@ -311,6 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const maxTime = Number(maxTimeInput?.value || 60);
     const craving = cravingInput?.value || "any";
 
+    // Strictly match recipes based on typed ingredients + pantry
     const matches = recipes
       .map(r => {
         const matched = r.ingredients.filter(ing => available.some(a => a.includes(ing) || ing.includes(a)));
@@ -323,18 +323,20 @@ document.addEventListener("DOMContentLoaded", () => {
           matchPct: Math.round((matched.length / r.ingredients.length) * 100)
         };
       })
-      .filter(r => r.time <= maxTime)
+      .filter(r => r.matchCount > 0 && r.time <= maxTime)
       .filter(r => craving === "any" || r.tags.includes(craving))
       .sort((a, b) => b.matchPct - a.matchPct || a.time - b.time);
 
     results.replaceChildren();
 
-    // Always ensure exactly 4 meals are shown
-    const top = (matches.length >= 4 ? matches : [...matches, ...recipes.filter(r => !matches.includes(r))]).slice(0, 4);
+    if (matches.length === 0) {
+      if (message) message.textContent = "No recipes matched your exact ingredients and time. Try adding more ingredients!";
+      return;
+    }
 
-    if (message) message.textContent = `Found ${top.length} meal options based on your kitchen stock!`;
+    if (message) message.textContent = `Found ${matches.length} matching recipe(s) based on your kitchen inventory!`;
 
-    top.forEach(recipe => {
+    matches.forEach(recipe => {
       const card = document.createElement("article");
       card.className = "rounded-xl border border-neutral-800 bg-[#24211e] p-5 space-y-3 flex flex-col justify-between";
 
@@ -344,7 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <p class="text-xs text-neutral-400">${recipe.description}</p>
         <p class="text-xs text-neutral-400">${recipe.time} mins prep · ${recipe.matchPct}% match</p>
         <p class="text-xs text-neutral-300 font-medium">You have: ${recipe.matched.join(", ") || "None"}</p>
-        <p class="text-xs text-neutral-500">Not available / Still needed: ${recipe.missing.join(', ') || "None (You have all ingredients!)"}</p>
+        <p class="text-xs text-neutral-500">Not available / Needed: ${recipe.missing.join(', ') || "None (All available!)"}</p>
         <button type="button" class="startCookBtn rounded-lg bg-[#ebe3d5] px-4 py-2.5 text-xs text-[#1a1816] font-medium hover:bg-white w-full cursor-pointer transition">Start Cooking Session</button>
       `;
 
@@ -362,7 +364,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 6. STEP-BY-STEP GUIDED COOKING
+  // 6. GUIDED COOKING & CHATBOT TIP REDIRECTION
   // ----------------------------------------------------
   let activeRecipe = null;
   let currentStep = 0;
@@ -400,10 +402,10 @@ document.addEventListener("DOMContentLoaded", () => {
     showDashboard(localStorage.getItem("cravecraftCurrentUser") || "Chef");
   });
 
-  // Problem button repurposed or removed of tips
+  // REDIRECT TIP TO CHATBOT
   cookScreen?.querySelector(".flex.gap-3.pt-4 button:nth-child(1)")?.addEventListener("click", (e) => {
     e.preventDefault();
-    alert("Follow the exact step instructions carefully.");
+    alert("Need a tip or having an issue? Please ask our AI Chatbot in the bottom right corner (🍳 Ask CraveCraft)!");
   });
 
   cookScreen?.querySelector(".flex.gap-3.pt-4 button:nth-child(2)")?.addEventListener("click", (e) => {
@@ -415,11 +417,37 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       hideAllScreens();
       reviewScreen?.classList.remove("hidden");
+      setupReviewScreenHandlers();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   });
 
-  // Save Progress to Gallery upon finishing
+  // ----------------------------------------------------
+  // 7. FIX FOR SCREEN REVIEW (SCREEN 4) BUTTONS
+  // ----------------------------------------------------
+  function setupReviewScreenHandlers() {
+    if (!reviewScreen) return;
+
+    const ratingBtns = reviewScreen.querySelectorAll("button.w-10.h-10");
+    ratingBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        ratingBtns.forEach(b => {
+          b.className = "w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400 text-white cursor-pointer";
+        });
+        btn.className = "w-10 h-10 bg-[#ebe3d5] text-[#1a1816] font-medium text-xs cursor-pointer";
+      };
+    });
+
+    const actionBtns = reviewScreen.querySelectorAll(".flex.gap-3.pt-4 button");
+    actionBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        finishCooking();
+      };
+    });
+  }
+
   function finishCooking() {
     const user = localStorage.getItem("cravecraftCurrentUser") || "Chef";
     const userData = getAppData(user);
@@ -441,11 +469,8 @@ document.addEventListener("DOMContentLoaded", () => {
     showDashboard(user);
   }
 
-  reviewScreen?.querySelector("button:nth-child(1)")?.addEventListener("click", (e) => { e.preventDefault(); finishCooking(); });
-  reviewScreen?.querySelector("button:nth-last-child(1)")?.addEventListener("click", (e) => { e.preventDefault(); finishCooking(); });
-
   // ----------------------------------------------------
-  // 7. DASHBOARD CARDS & GALLERY -> FORUM / SOCIAL MEDIA UPLOAD
+  // 8. DASHBOARD CARDS & GALLERY / FORUM
   // ----------------------------------------------------
   const cards = document.querySelectorAll("#screen-dashboard .grid-cols-1.md\\:grid-cols-3 > div");
   if (cards.length >= 3) {
@@ -556,7 +581,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Gallery view with direct upload buttons to Forum & Social Media
   function openGalleryModal() {
     const user = localStorage.getItem("cravecraftCurrentUser");
     const userData = getAppData(user);
@@ -584,7 +608,6 @@ document.addEventListener("DOMContentLoaded", () => {
       <button id="closeModalBtn" type="button" class="mt-2 w-full bg-neutral-800 text-neutral-300 py-2 rounded-lg text-sm cursor-pointer hover:bg-neutral-700">Close</button>
     `);
 
-    // Upload gallery item directly to community forum
     document.querySelectorAll(".uploadForumBtn").forEach(btn => {
       btn.onclick = (e) => {
         const name = btn.getAttribute("data-name");
@@ -600,11 +623,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         saveServerData(server);
         updateDashboardUI();
-        alert(`Successfully uploaded "${name}" to the Community Forum!`);
+        alert(`Uploaded "${name}" to Community Forum!`);
       };
     });
 
-    // Copy to clipboard for social media
     document.querySelectorAll(".shareSocialBtn").forEach(btn => {
       btn.onclick = (e) => {
         const dish = btn.getAttribute("data-name");
@@ -691,7 +713,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 8. CHATBOT & INITIAL LOAD
+  // 9. INITIAL LOAD
   // ----------------------------------------------------
   const chatToggle = document.getElementById("cc-ai-toggle");
   const chatPanel = document.getElementById("cc-ai-panel");
