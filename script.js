@@ -335,7 +335,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (message) message.textContent = `Found ${matches.length} matching recipe(s) based on your kitchen inventory!`;
-
+    const ratingLookupUser = localStorage.getItem("cravecraftCurrentUser") || "Chef";
+    const savedRecipeRatings = getAppData(ratingLookupUser).recipeRatings || {};
     matches.forEach(recipe => {
       const card = document.createElement("article");
       card.className = "rounded-xl border border-neutral-800 bg-[#24211e] p-5 space-y-3 flex flex-col justify-between";
@@ -343,6 +344,9 @@ document.addEventListener("DOMContentLoaded", () => {
       card.innerHTML = `
         <img src="${recipe.image}" alt="${recipe.name}" class="w-full h-44 object-cover rounded-lg">
         <h3 class="text-xl text-white serif-heading font-medium">${recipe.name}</h3>
+       ${savedRecipeRatings[recipe.name]
+          ? `<p class="text-xs text-neutral-300">Your rating: ${"★".repeat(savedRecipeRatings[recipe.name].rating)}${"☆".repeat(5 - savedRecipeRatings[recipe.name].rating)} (${savedRecipeRatings[recipe.name].rating}/5)</p>`
+          : ""}
         <p class="text-xs text-neutral-400">${recipe.description}</p>
         <p class="text-xs text-neutral-400">${recipe.time} mins prep · ${recipe.matchPct}% match</p>
         <p class="text-xs text-neutral-300 font-medium">You have: ${recipe.matched.join(", ") || "None"}</p>
@@ -425,27 +429,82 @@ document.addEventListener("DOMContentLoaded", () => {
   // ----------------------------------------------------
   // 7. FIX FOR SCREEN REVIEW (SCREEN 4) BUTTONS
   // ----------------------------------------------------
+
+  let selectedRating = null;
+  let selectedOutcome = null;
+
   function setupReviewScreenHandlers() {
     if (!reviewScreen) return;
 
-    const ratingBtns = reviewScreen.querySelectorAll("button.w-10.h-10");
-    ratingBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.preventDefault();
-        ratingBtns.forEach(b => {
-          b.className = "w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400 text-white cursor-pointer";
+    selectedRating = null;
+    selectedOutcome = null;
+
+    const ratingButtons = reviewScreen.querySelectorAll(".review-rating");
+    const outcomeButtons = reviewScreen.querySelectorAll(".review-outcome");
+    const saveButton = document.getElementById("saveReviewButton");
+    const skipButton = document.getElementById("skipReviewButton");
+
+    ratingButtons.forEach(button => {
+      button.onclick = () => {
+        selectedRating = Number(button.dataset.rating);
+
+        ratingButtons.forEach(ratingButton => {
+          ratingButton.classList.remove("bg-[#ebe3d5]", "text-[#1a1816]", "font-medium");
+          ratingButton.classList.add("bg-[#24211e]", "text-white");
         });
-        btn.className = "w-10 h-10 bg-[#ebe3d5] text-[#1a1816] font-medium text-xs cursor-pointer";
+
+        button.classList.remove("bg-[#24211e]", "text-white");
+        button.classList.add("bg-[#ebe3d5]", "text-[#1a1816]", "font-medium");
       };
     });
 
-    const actionBtns = reviewScreen.querySelectorAll(".flex.gap-3.pt-4 button");
-    actionBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.preventDefault();
-        finishCooking();
+    outcomeButtons.forEach(button => {
+      button.onclick = () => {
+        selectedOutcome = button.dataset.outcome;
+
+        outcomeButtons.forEach(outcomeButton => {
+          outcomeButton.classList.remove("border-[#ebe3d5]", "text-white");
+          outcomeButton.classList.add("border-neutral-700");
+        });
+
+        button.classList.remove("border-neutral-700");
+        button.classList.add("border-[#ebe3d5]", "text-white");
       };
     });
+
+    if (saveButton) {
+      saveButton.onclick = () => {
+        if (selectedRating === null || selectedOutcome === null) {
+          alert("Please choose a rating and an outcome before saving.");
+          return;
+        }
+
+        const user = localStorage.getItem("cravecraftCurrentUser") || "Chef";
+        const userData = getAppData(user);
+
+        if (!userData.reviews) {
+          userData.reviews = [];
+        }
+
+        if (!userData.recipeRatings) {
+          userData.recipeRatings = {};
+        }
+
+        userData.recipeRatings[activeRecipe.name] = {
+          rating: selectedRating,
+          outcome: selectedOutcome,
+          date: new Date().toLocaleDateString()
+        };
+        saveAppData(user, userData);
+        finishCooking();
+      };
+    }
+
+    if (skipButton) {
+      skipButton.onclick = () => {
+        finishCooking();
+      };
+    }
   }
 
   function finishCooking() {
