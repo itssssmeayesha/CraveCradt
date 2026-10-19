@@ -1,4 +1,4 @@
-# CraveCradt
+# CraveCraft
 AI powered food discovery and personalization cooking experience
 
 Note for Judges:CraveCraft features an integrated AI culinary assistant. Because the AI model runs locally for hackathon privacy and performance, the chat feature requires the backend server to be running.
