@@ -1,4 +1,41 @@
 console.log("CraveCraft JavaScript is running!");
+
+// ----------------------------------------------------
+// STATE & STORAGE SETUP (Persistent Across Sign-outs)
+// ----------------------------------------------------
+function getAppData(username) {
+  const allData = JSON.parse(localStorage.getItem("cravecraftAllUsersData")) || {};
+  if (!allData[username]) {
+    allData[username] = {
+      pantryItems: ["chicken", "rice", "eggs", "tomatoes", "onion"],
+      cookedGallery: [],
+      selectedAllergies: [],
+      points: 0,
+      cookedCount: 0
+    };
+  }
+  return allData[username];
+}
+
+function saveAppData(username, data) {
+  const allData = JSON.parse(localStorage.getItem("cravecraftAllUsersData")) || {};
+  allData[username] = data;
+  localStorage.setItem("cravecraftAllUsersData", JSON.stringify(allData));
+}
+
+// Shared Community Forum & Leaderboard Data (Permanent Server Sync)
+const sharedServerData = JSON.parse(localStorage.getItem("cravecraftPublicServer")) || {
+  leaderboard: [],
+  communityRecipes: []
+};
+
+function persistServerData() {
+  localStorage.setItem("cravecraftPublicServer", JSON.stringify(sharedServerData));
+}
+
+// ----------------------------------------------------
+// RECIPE DATABASE
+// ----------------------------------------------------
 const recipes = [
   {
     name: "Chicken Quesadillas",
@@ -106,6 +143,9 @@ const recipes = [
   }
 ];
 
+// ----------------------------------------------------
+// RECIPE MATCHING LOGIC
+// ----------------------------------------------------
 const ingredientInput = document.getElementById("ingredients");
 const cravingInput = document.getElementById("craving");
 const maxTimeInput = document.getElementById("maxTime");
@@ -115,31 +155,35 @@ const message = document.getElementById("recipeMessage");
 
 function normalizeIngredient(ingredient) {
   const value = ingredient.trim().toLowerCase();
-
   const aliases = {
-    eggs: "egg",
+    eggs: "eggs",
+    egg: "eggs",
     tomatoes: "tomato",
     onions: "onion",
     potatoes: "potato",
-    chickpeas: "chickpea",
+    chickpeas: "chickpeas",
     tortillas: "tortilla",
     mushrooms: "mushroom",
     carrots: "carrot",
-    peas: "pea",
+    peas: "peas",
     beans: "bean",
     "chicken breast": "chicken",
     "bell pepper": "pepper",
     "bell peppers": "pepper"
   };
-
   return aliases[value] || value;
 }
 
 function getUserIngredients() {
-  return ingredientInput.value
+  const currentUser = localStorage.getItem("cravecraftCurrentUser");
+  const userData = currentUser ? getAppData(currentUser) : { pantryItems: [] };
+  
+  const typed = ingredientInput.value
     .split(",")
     .map(normalizeIngredient)
     .filter(Boolean);
+  
+  return Array.from(new Set([...typed, ...userData.pantryItems.map(normalizeIngredient)]));
 }
 
 function findMatchingRecipes() {
@@ -148,8 +192,7 @@ function findMatchingRecipes() {
   const maxTime = Number(maxTimeInput.value);
 
   if (userIngredients.length === 0) {
-    message.textContent =
-      "Enter at least one ingredient to find meals.";
+    message.textContent = "Enter at least one ingredient or update your pantry to find meals.";
     results.replaceChildren();
     return;
   }
@@ -157,7 +200,7 @@ function findMatchingRecipes() {
   const matches = recipes
     .map(recipe => {
       const matchedIngredients = recipe.ingredients.filter(
-        ingredient => userIngredients.includes(ingredient)
+        ingredient => userIngredients.some(u => u.includes(ingredient) || ingredient.includes(u))
       );
 
       return {
@@ -171,39 +214,32 @@ function findMatchingRecipes() {
     })
     .filter(recipe => recipe.matchCount > 0)
     .filter(recipe => recipe.time <= maxTime)
-    .filter(recipe =>
-      craving === "any" || recipe.tags.includes(craving)
-    )
-    .sort((a, b) =>
-      b.matchPercentage - a.matchPercentage ||
-      a.time - b.time
-    );
+    .filter(recipe => craving === "any" || recipe.tags.includes(craving))
+    .sort((a, b) => b.matchPercentage - a.matchPercentage || a.time - b.time);
 
   results.replaceChildren();
 
   if (matches.length === 0) {
-    message.textContent =
-      "No matches found. Try different ingredients or a longer cooking time.";
+    message.textContent = "No matches found. Try adding items or increasing cooking time.";
     return;
   }
 
   const topMatches = matches.slice(0, 4);
 
-  message.textContent =
-    `Found ${topMatches.length} suggestion(s). ` +
-    "These are starter recipes matched against your ingredients.";
+  message.textContent = `Found ${topMatches.length} suggestion(s) matching your kitchen & pantry!`;
 
   topMatches.forEach(recipe => {
     const card = document.createElement("article");
-    card.className =
-      "rounded-xl border border-neutral-800 bg-[#24211e] p-5 space-y-3";
+    card.className = "rounded-xl border border-neutral-800 bg-[#24211e] p-5 space-y-3 flex flex-col justify-between";
+    
     const image = document.createElement("img");
     image.src = recipe.image;
     image.alt = recipe.name;
     image.className = "w-full h-48 object-cover rounded-lg";
     image.loading = "lazy";
+
     const title = document.createElement("h3");
-    title.className = "text-xl text-white";
+    title.className = "text-xl text-white serif-heading";
     title.textContent = recipe.name;
 
     const description = document.createElement("p");
@@ -212,13 +248,11 @@ function findMatchingRecipes() {
 
     const meta = document.createElement("p");
     meta.className = "text-xs text-neutral-400";
-    meta.textContent =
-      `${recipe.time} minutes · ${recipe.matchPercentage}% ingredient overlap`;
+    meta.textContent = `${recipe.time} minutes · ${recipe.matchPercentage}% ingredient overlap`;
 
     const used = document.createElement("p");
     used.className = "text-xs text-neutral-300";
-    used.textContent =
-      "You have: " + recipe.matchedIngredients.join(", ");
+    used.textContent = "You have: " + (recipe.matchedIngredients.join(", ") || "None");
 
     const missing = recipe.ingredients.filter(
       item => !recipe.matchedIngredients.includes(item)
@@ -230,54 +264,33 @@ function findMatchingRecipes() {
       ? "Still needed: " + missing.join(", ")
       : "You have all listed ingredients!";
 
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className =
-      "rounded-lg bg-[#ebe3d5] px-4 py-2 text-sm text-[#1a1816]";
-    toggle.textContent = "View cooking steps";
+    const cookBtn = document.createElement("button");
+    cookBtn.type = "button";
+    cookBtn.className = "rounded-lg bg-[#ebe3d5] px-4 py-2 text-sm text-[#1a1816] font-medium hover:bg-white w-full cursor-pointer";
+    cookBtn.textContent = "Start Cooking Session";
 
-    const instructions = document.createElement("ol");
-    instructions.className =
-      "hidden list-decimal space-y-2 pl-5 text-sm text-neutral-300";
-
-    recipe.steps.forEach(step => {
-      const item = document.createElement("li");
-      item.textContent = step;
-      instructions.appendChild(item);
+    cookBtn.addEventListener("click", () => {
+      startGuidedCooking(recipe);
     });
 
-    toggle.addEventListener("click", () => {
-      const opening = instructions.classList.contains("hidden");
-      instructions.classList.toggle("hidden");
-      toggle.textContent = opening
-        ? "Hide cooking steps"
-        : "View cooking steps";
-    });
-
-    card.append(
-      image,
-      title,
-      description,
-      meta,
-      used,
-      missingText,
-      toggle,
-      instructions
-    );
-
+    card.append(image, title, description, meta, used, missingText, cookBtn);
     results.appendChild(card);
   });
 }
 
-findButton.addEventListener("click", findMatchingRecipes);
+if (findButton) findButton.addEventListener("click", findMatchingRecipes);
 
-
+// ----------------------------------------------------
+// AUTHENTICATION & NAVIGATION
+// ----------------------------------------------------
 const signupForm = document.getElementById("signupForm");
 const usernameInput = document.getElementById("username");
 const passwordInput = document.getElementById("password");
 
 const authScreen = document.getElementById("screen-auth");
 const dashboardScreen = document.getElementById("screen-dashboard");
+const cookScreen = document.getElementById("screen-cook");
+const reviewScreen = document.getElementById("screen-review");
 const dashboardGreeting = document.getElementById("dashboardGreeting");
 
 const signInTab = document.getElementById("signInTab");
@@ -286,19 +299,29 @@ const authSubmitButton = document.getElementById("authSubmitButton");
 const authMessage = document.getElementById("authMessage");
 
 const homeLink = document.getElementById("homeLink");
+const galleryLink = document.getElementById("galleryLink");
 const signOutButton = document.getElementById("signOutButton");
 
 let authMode = "signup";
+let currentActiveRecipe = null;
+let currentStepIndex = 0;
+
+function hideAllScreens() {
+  [authScreen, dashboardScreen, cookScreen, reviewScreen].forEach(s => {
+    if (s) s.classList.add("hidden");
+  });
+}
 
 function showDashboard(username) {
+  hideAllScreens();
   dashboardGreeting.textContent = `Hello, ${username}`;
-  authScreen.classList.add("hidden");
   dashboardScreen.classList.remove("hidden");
+  updateDashboardCardsAndLeaderboard();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function showAuth() {
-  dashboardScreen.classList.add("hidden");
+  hideAllScreens();
   authScreen.classList.remove("hidden");
   authMessage.textContent = "";
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -310,165 +333,204 @@ function setAuthMode(mode) {
 
   const isSignup = mode === "signup";
 
-  authSubmitButton.textContent = isSignup
-    ? "Create account"
-    : "Sign in";
+  authSubmitButton.textContent = isSignup ? "Create account" : "Sign in";
 
   createAccountTab.className = isSignup
-    ? "text-white border-b-2 border-white pb-2 font-medium"
-    : "text-neutral-500 hover:text-white pb-2";
+    ? "text-white border-b-2 border-white pb-2 font-medium cursor-pointer"
+    : "text-neutral-500 hover:text-white pb-2 cursor-pointer";
 
   signInTab.className = isSignup
-    ? "text-neutral-500 hover:text-white pb-2"
-    : "text-white border-b-2 border-white pb-2 font-medium";
+    ? "text-neutral-500 hover:text-white pb-2 cursor-pointer"
+    : "text-white border-b-2 border-white pb-2 font-medium cursor-pointer";
 }
 
-createAccountTab.addEventListener("click", () => {
-  setAuthMode("signup");
-});
+if (createAccountTab) createAccountTab.addEventListener("click", () => setAuthMode("signup"));
+if (signInTab) signInTab.addEventListener("click", () => setAuthMode("signin"));
 
-signInTab.addEventListener("click", () => {
-  setAuthMode("signin");
-});
+if (signupForm) {
+  signupForm.addEventListener("submit", function (event) {
+    event.preventDefault();
 
-signupForm.addEventListener("submit", function (event) {
-  event.preventDefault();
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
 
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value;
-
-  if (!username || !password) {
-    authMessage.textContent = "Please enter your username and password.";
-    return;
-  }
-
-  // Demo accounts are stored in this browser only.
-  const accounts = JSON.parse(
-    localStorage.getItem("cravecraftAccounts") || "{}"
-  );
-
-  const accountKey = username.toLowerCase();
-
-  if (authMode === "signup") {
-    if (accounts[accountKey]) {
-      authMessage.textContent =
-        "That username already exists. Please sign in instead.";
+    if (!username || !password) {
+      authMessage.textContent = "Please enter your username and password.";
       return;
     }
 
-    accounts[accountKey] = {
-      username: username,
-      password: password
-    };
+    const accounts = JSON.parse(localStorage.getItem("cravecraftAccounts") || "{}");
+    const accountKey = username.toLowerCase();
 
-    localStorage.setItem(
-      "cravecraftAccounts",
-      JSON.stringify(accounts)
-    );
-  } else {
-    const account = accounts[accountKey];
+    if (authMode === "signup") {
+      if (accounts[accountKey]) {
+        authMessage.textContent = "That username already exists. Please sign in instead.";
+        return;
+      }
 
-    if (!account || account.password !== password) {
-      authMessage.textContent =
-        "Incorrect username or password. Please try again.";
-      return;
+      accounts[accountKey] = { username: username, password: password };
+      localStorage.setItem("cravecraftAccounts", JSON.stringify(accounts));
+    } else {
+      const account = accounts[accountKey];
+      if (!account || account.password !== password) {
+        authMessage.textContent = "Incorrect username or password. Please try again.";
+        return;
+      }
     }
-  }
 
-  localStorage.setItem("cravecraftCurrentUser", username);
-  showDashboard(username);
-});
-
-homeLink.addEventListener("click", function (event) {
-  event.preventDefault();
-
-  const username = localStorage.getItem("cravecraftCurrentUser");
-
-  if (username) {
+    localStorage.setItem("cravecraftCurrentUser", username);
+    syncUserToLeaderboard(username);
     showDashboard(username);
-  } else {
-    showAuth();
-  }
-});
-
-signOutButton.addEventListener("click", function () {
-  localStorage.removeItem("cravecraftCurrentUser");
-  signupForm.reset();
-  setAuthMode("signin");
-  showAuth();
-});
-
-// Restore the dashboard if the user refreshes while signed in.
-const savedUsername = localStorage.getItem("cravecraftCurrentUser");
-
-if (savedUsername) {
-  showDashboard(savedUsername);
-} else {
-  showAuth();
+  });
 }
 
-setAuthMode("signup");
-const chatToggle = document.getElementById("cc-ai-toggle");
-const chatPanel = document.getElementById("cc-ai-panel");
-const chatClose = document.getElementById("cc-ai-close");
-const chatForm = document.getElementById("cc-ai-form");
-const chatInput = document.getElementById("cc-ai-input");
-const chatMessages = document.getElementById("cc-ai-messages");
-const chatSend = document.getElementById("cc-ai-send");
+// Food Allergy Buttons Interaction
+document.querySelectorAll("#screen-auth .flex.flex-wrap.gap-2 button").forEach(btn => {
+  btn.setAttribute("type", "button");
+  btn.addEventListener("click", () => {
+    const currentUser = localStorage.getItem("cravecraftCurrentUser");
+    if (!currentUser) return;
+    const userData = getAppData(currentUser);
+    const text = btn.textContent.trim();
 
-chatToggle.addEventListener("click", () => {
-  chatPanel.hidden = false;
-  chatToggle.hidden = true;
-  chatInput.focus();
-});
-
-chatClose.addEventListener("click", () => {
-  chatPanel.hidden = true;
-  chatToggle.hidden = false;
-});
-
-function addChatMessage(text, className) {
-  const message = document.createElement("p");
-  message.className = `cc-ai-message ${className}`;
-  message.textContent = text;
-  chatMessages.appendChild(message);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-  return message;
-}
-
-chatForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const question = chatInput.value.trim();
-  if (!question) return;
-
-  addChatMessage(question, "cc-ai-user");
-  chatInput.value = "";
-  chatSend.disabled = true;
-
-  const thinkingMessage = addChatMessage("Thinking…", "cc-ai-assistant");
-
-  try {
-    const response = await fetch("http://127.0.0.1:3001/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: question })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "The server could not answer.");
+    if (userData.selectedAllergies.includes(text)) {
+      userData.selectedAllergies = userData.selectedAllergies.filter(a => a !== text);
+      btn.className = "px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-500 cursor-pointer";
+    } else {
+      userData.selectedAllergies.push(text);
+      btn.className = "px-4 py-1.5 rounded-full border border-neutral-500 bg-[#ebe3d5] text-[#1a1816] text-xs font-medium cursor-pointer";
     }
-
-    thinkingMessage.textContent = data.answer;
-  } catch (error) {
-    thinkingMessage.textContent =
-      "I couldn't reach the AI server. Check that the server is running.";
-    console.error(error);
-  } finally {
-    chatSend.disabled = false;
-    chatInput.focus();
-  }
+    saveAppData(currentUser, userData);
+  });
 });
 
+if (homeLink) {
+  homeLink.addEventListener("click", function (event) {
+    event.preventDefault();
+    const username = localStorage.getItem("cravecraftCurrentUser");
+    if (username) showDashboard(username);
+    else showAuth();
+  });
+}
+
+if (galleryLink) {
+  galleryLink.addEventListener("click", function (event) {
+    event.preventDefault();
+    if (localStorage.getItem("cravecraftCurrentUser")) {
+      openGalleryModal();
+    } else {
+      alert("Please sign in to view your gallery.");
+      showAuth();
+    }
+  });
+}
+
+if (signOutButton) {
+  signOutButton.addEventListener("click", function () {
+    localStorage.removeItem("cravecraftCurrentUser");
+    signupForm.reset();
+    setAuthMode("signin");
+    showAuth();
+  });
+}
+
+// ----------------------------------------------------
+// DASHBOARD CARDS (PANTRY, GALLERY, SHARE RECIPE)
+// ----------------------------------------------------
+const dashboardCards = document.querySelectorAll("#screen-dashboard .grid-cols-1.md\\:grid-cols-3 > div");
+
+if (dashboardCards.length >= 3) {
+  dashboardCards[0].style.cursor = "pointer";
+  dashboardCards[0].addEventListener("click", () => openPantryModal());
+
+  dashboardCards[1].style.cursor = "pointer";
+  dashboardCards[1].addEventListener("click", () => openGalleryModal());
+
+  dashboardCards[2].style.cursor = "pointer";
+  dashboardCards[2].addEventListener("click", () => openShareModal());
+}
+
+function updateDashboardCardsAndLeaderboard() {
+  const currentUser = localStorage.getItem("cravecraftCurrentUser");
+  if (!currentUser) return;
+  const userData = getAppData(currentUser);
+
+  if (dashboardCards.length >= 3) {
+    dashboardCards[0].querySelector("p").textContent = `${userData.pantryItems.length} products in stock`;
+    dashboardCards[1].querySelector("p").textContent = `${userData.cookedCount} dishes cooked`;
+  }
+
+  // Render Public Leaderboard & Community Forum Feed
+  let lbSection = document.getElementById("publicLeaderboardSection");
+  if (!lbSection) {
+    lbSection = document.createElement("div");
+    lbSection.id = "publicLeaderboardSection";
+    lbSection.className = "bg-[#24211e] p-5 rounded-xl border border-neutral-800 space-y-4 mt-6";
+    lbSection.innerHTML = `
+      <h3 class="text-xl font-normal text-white serif-heading">Public Leaderboard & Community Forum</h3>
+      <p class="text-xs text-neutral-400">Live rankings and community shared recipes:</p>
+      <div id="liveLeaderboardList" class="space-y-2 pb-2 border-b border-neutral-800"></div>
+      <div class="space-y-2 pt-2">
+        <h4 class="text-sm font-medium text-white">Community Recipe Feed</h4>
+        <div id="communityFeedList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </div>
+    `;
+    dashboardScreen.appendChild(lbSection);
+  }
+
+  const lbList = document.getElementById("liveLeaderboardList");
+  if (lbList) {
+    if (sharedServerData.leaderboard.length === 0) {
+      lbList.innerHTML = `<p class="text-xs text-neutral-500 italic">No chefs on the leaderboard yet. Cook or post a dish to rank!</p>`;
+    } else {
+      lbList.innerHTML = sharedServerData.leaderboard.map((chef, i) => `
+        <div class="flex justify-between items-center text-sm border-b border-neutral-800/60 pb-1.5">
+          <span class="text-neutral-200">${i + 1}. ${chef.name}${chef.name === currentUser ? '(You)' : ''}</span>
+          <span class="text-xs text-neutral-400">${chef.points} pts · ${chef.dishes} dishes</span>
+        </div>
+      `).join("");
+    }
+  }
+
+  const communityFeedList = document.getElementById("communityFeedList");
+  if (communityFeedList) {
+    if (sharedServerData.communityRecipes.length === 0) {
+      communityFeedList.innerHTML = `<p class="text-xs text-neutral-500 italic col-span-2">No community recipes shared yet. Click "Share a recipe" to post yours!</p>`;
+    } else {
+      communityFeedList.innerHTML = sharedServerData.communityRecipes.map(item => `
+        <div class="bg-[#1a1816] border border-neutral-800 rounded-xl overflow-hidden flex flex-col justify-between">
+          <img src="${item.image}" alt="${item.recipeName}" class="w-full h-28 object-cover">
+          <div class="p-3 space-y-1">
+            <div class="flex justify-between items-center">
+              <h5 class="text-sm font-medium text-white">${item.recipeName}</h5>
+              <span class="text-[10px] text-neutral-500">by ${item.author}</span>
+            </div>
+            <p class="text-xs text-neutral-400">Ingredients: ${item.ingredients}</p>
+          </div>
+        </div>
+      `).join("");
+    }
+  }
+}
+
+// ----------------------------------------------------
+// MODALS (PANTRY, GALLERY, SHARE RECIPE)
+// ----------------------------------------------------
+function openPantryModal() {
+  const currentUser = localStorage.getItem("cravecraftCurrentUser");
+  const userData = getAppData(currentUser);
+
+  createOrShowModal(`
+    <h3 class="text-xl font-normal text-white serif-heading">Your Smart Pantry</h3>
+    <p class="text-xs text-neutral-400">Update stock ingredients so we suggest meals based on what you have:</p>
+    <div class="flex flex-wrap gap-2 py-2" id="pantryModalList">
+      ${userData.pantryItems.map((item, idx) => `
+        <span class="bg-[#1a1816] border border-neutral-700 px-3 py-1 rounded-full text-xs text-neutral-200 flex items-center gap-2">
+          ${item}
+          <button data-index="${idx}" class="removePantryItem hover:text-red-400 cursor-pointer">&times;</button>
+        </span>
+      `).join("")}
+    </div>
+    <div class="flex gap-2 pt-2">
+      <input type="text" id="newPantryInput" placeholder="Add item (e.g. potatoes)" class="bg-[#1a1816] border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white flex-1 focus:outline-none">
+      <button id="addPantryBtn" type="button" class="bg-[#ebe3d5] text-[#1a1816] px-4 py-
