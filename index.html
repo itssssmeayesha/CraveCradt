@@ -78,6 +78,8 @@
                     <input id="password" name="password" type="password" required placeholder="Enter your password"
                         class="w-full bg-[#24211e] border border-neutral-800 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-neutral-600">
                 </div>
+
+
                 </div>
 
                 <button id="authSubmitButton" type="submit"
@@ -226,36 +228,47 @@
         <section id="screen-review" class="hidden space-y-6 max-w-lg">
             <div class="space-y-1">
                 <h1 class="text-3xl font-normal text-white">How was
-                    <button
-                        class="w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">1</button>
-                    <button
-                        class="w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">2</button>
-                    <button
-                        class="w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">3</button>
-                    <button
-                        class="w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">4</button>
-                    <button class="w-10 h-10 bg-[#ebe3d5] text-[#1a1816] font-medium text-xs">5</button>
+                    <button type="button" data-rating="1"
+                        class="review-rating w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">1</button>
+                    <button type="button" data-rating="2"
+                        class="review-rating w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">2</button>
+                    <button type="button" data-rating="3"
+                        class="review-rating w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">3</button>
+                    <button type="button" data-rating="4"
+                        class="review-rating w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">4</button>
+                    <button type="button" data-rating="5"
+                        class="review-rating w-10 h-10 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-400">5</button>
+
             </div>
             </div>
 
             <div class="space-y-2">
                 <span class="text-xs text-neutral-400 block">How did it turn out?</span>
                 <div class="flex flex-wrap gap-2">
-                    <button class="px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs">Just
-                        right</button>
-                    <button class="px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs">Too
-                        spicy</button>
-                    <button class="px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs">Not spicy
-                        enough</button>
+                    <button type="button" data-outcome="Just right"
+                        class="review-outcome px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs">
+                        Just right
+                    </button>
+                    <button type="button" data-outcome="Too spicy"
+                        class="review-outcome px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs">
+                        Too spicy
+                    </button>
+                    <button type="button" data-outcome="Not spicy enough"
+                        class="review-outcome px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs">
+                        Not spicy enough
+                    </button>
                 </div>
             </div>
 
             <div class="flex gap-3 pt-4">
-                <button
-                    class="bg-neutral-700 text-neutral-300 font-medium px-6 py-2.5 rounded-lg text-sm cursor-not-allowed">Save
-                    review</button>
-                <button
-                    class="border border-neutral-700 text-white px-6 py-2.5 rounded-lg text-sm hover:border-neutral-500">Skip</button>
+                <button id="saveReviewButton" type="button"
+                    class="bg-neutral-700 text-neutral-300 font-medium px-6 py-2.5 rounded-lg text-sm">
+                    Save review
+                </button>
+                <button id="skipReviewButton" type="button"
+                    class="border border-neutral-700 text-white px-6 py-2.5 rounded-lg text-sm hover:border-neutral-500">
+                    Skip
+                </button>
             </div>
         </section>
 
