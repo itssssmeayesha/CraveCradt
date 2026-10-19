@@ -8,10 +8,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const allData = JSON.parse(localStorage.getItem("cravecraftAllUsersData") || "{}");
     if (!allData[username]) {
       allData[username] = {
-        pantryItems: ["chicken", "rice", "eggs", "tomatoes", "onion"], // Default 5 items
-        activePantrySelections: ["chicken", "rice", "eggs", "tomatoes", "onion"], // Selected for recipe search
+        pantryItems: ["chicken", "rice", "eggs", "tomatoes", "onion"], // Initial default pantry items
+        activePantrySelections: ["chicken", "rice", "eggs", "tomatoes", "onion"],
         cookedGallery: [],
         selectedAllergies: [],
+        customAllergies: [], // Editable custom allergies
         points: 0,
         cookedCount: 0
       };
@@ -34,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 2. DETAILED RECIPE DATABASE
+  // 2. RECIPE DATABASE
   // ----------------------------------------------------
   const recipes = [
     {
@@ -100,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   // ----------------------------------------------------
-  // 3. UI SCREEN NAVIGATION
+  // 3. NAVIGATION & UI SWITCHING
   // ----------------------------------------------------
   const authScreen = document.getElementById("screen-auth");
   const dashboardScreen = document.getElementById("screen-dashboard");
@@ -124,11 +125,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function showAuth() {
     hideAllScreens();
     authScreen?.classList.remove("hidden");
+    renderAllergiesUI();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // ----------------------------------------------------
-  // 4. AUTH & ALLERGY BUTTON FIXES
+  // 4. AUTHENTICATION & EDITABLE ALLERGIES
   // ----------------------------------------------------
   const signupForm = document.getElementById("signupForm");
   const signInTab = document.getElementById("signInTab");
@@ -193,27 +195,78 @@ document.addEventListener("DOMContentLoaded", () => {
   signupForm?.addEventListener("submit", handleAuth);
   authSubmitButton?.addEventListener("click", handleAuth);
 
-  // FIX: Allergy buttons clicking logic
-  document.querySelectorAll("#screen-auth .flex.flex-wrap.gap-2 button").forEach(btn => {
-    btn.setAttribute("type", "button");
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      const user = localStorage.getItem("cravecraftCurrentUser") || "guest";
-      const userData = getAppData(user);
-      const allergyName = btn.textContent.trim();
+  // FIX 1: Render and allow adding custom editable allergies
+  function renderAllergiesUI() {
+    const allergyContainer = document.querySelector("#screen-auth .space-y-2.pt-2");
+    if (!allergyContainer) return;
 
-      if (userData.selectedAllergies.includes(allergyName)) {
-        userData.selectedAllergies = userData.selectedAllergies.filter(a => a !== allergyName);
-        btn.className = "px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-500 cursor-pointer";
-      } else {
-        userData.selectedAllergies.push(allergyName);
-        btn.className = "px-4 py-1.5 rounded-full border border-neutral-500 bg-[#ebe3d5] text-[#1a1816] text-xs font-medium cursor-pointer";
-      }
-      saveAppData(user, userData);
+    let customArea = document.getElementById("customAllergiesWrapper");
+    if (!customArea) {
+      customArea = document.createElement("div");
+      customArea.id = "customAllergiesWrapper";
+      customArea.className = "pt-2 space-y-2";
+      allergyContainer.appendChild(customArea);
+    }
+
+    const currentUser = localStorage.getItem("cravecraftCurrentUser") || "guest";
+    const userData = getAppData(currentUser);
+
+    customArea.innerHTML = `
+      <div class="flex gap-2">
+        <input type="text" id="addCustomAllergyInput" placeholder="Add custom allergy (e.g., Soy, Shellfish)..." class="bg-[#24211e] border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1">
+        <button type="button" id="addCustomAllergyBtn" class="bg-neutral-800 text-neutral-300 px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-700 cursor-pointer">Add</button>
+      </div>
+      <div class="flex flex-wrap gap-2" id="customAllergyChips">
+        ${userData.customAllergies.map((alg, idx) => `
+          <span class="bg-[#1a1816] border border-neutral-700 text-neutral-200 px-3 py-1 rounded-full text-xs flex items-center gap-1.5">
+            ${alg}
+            <button type="button" data-idx="${idx}" class="removeCustomAlgBtn hover:text-red-400 cursor-pointer">&times;</button>
+          </span>
+        `).join("")}
+      </div>
+    `;
+
+    // Existing preset allergy buttons
+    document.querySelectorAll("#screen-auth .flex.flex-wrap.gap-2 button").forEach(btn => {
+      btn.setAttribute("type", "button");
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const text = btn.textContent.trim();
+        if (userData.selectedAllergies.includes(text)) {
+          userData.selectedAllergies = userData.selectedAllergies.filter(a => a !== text);
+          btn.className = "px-4 py-1.5 rounded-full border border-neutral-700 bg-[#24211e] text-xs hover:border-neutral-500 cursor-pointer";
+        } else {
+          userData.selectedAllergies.push(text);
+          btn.className = "px-4 py-1.5 rounded-full border border-neutral-500 bg-[#ebe3d5] text-[#1a1816] text-xs font-medium cursor-pointer";
+        }
+        saveAppData(currentUser, userData);
+      };
     });
-  });
 
-  // Navigation Bar Links
+    // Handle adding custom allergy
+    document.getElementById("addCustomAllergyBtn")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      const val = document.getElementById("addCustomAllergyInput")?.value.trim();
+      if (val && !userData.customAllergies.includes(val)) {
+        userData.customAllergies.push(val);
+        saveAppData(currentUser, userData);
+        renderAllergiesUI();
+      }
+    });
+
+    // Handle removing custom allergy
+    document.querySelectorAll(".removeCustomAlgBtn").forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const idx = Number(btn.getAttribute("data-idx"));
+        userData.customAllergies.splice(idx, 1);
+        saveAppData(currentUser, userData);
+        renderAllergiesUI();
+      };
+    });
+  }
+
+  // Navigation Links
   document.getElementById("homeLink")?.addEventListener("click", (e) => {
     e.preventDefault();
     const u = localStorage.getItem("cravecraftCurrentUser");
@@ -235,7 +288,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ----------------------------------------------------
-  // 5. PANTRY SELECTION IN RECIPE SEARCH
+  // 5. PANTRY SELECTOR (FIXED ACCURATE MESSAGE)
   // ----------------------------------------------------
   function renderPantrySelector() {
     const user = localStorage.getItem("cravecraftCurrentUser");
@@ -254,26 +307,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (container) {
+      const count = userData.pantryItems.length;
+
+      // FIX 2: Correct dynamic label based on exact pantry count
+      const labelText = count > 0 
+        ? `Include items from your Pantry Stock (${count} item${count > 1 ? 's' : ''} available):`
+        : `Your Pantry is currently empty. Click 'Pantry' below to add items!`;
+
       container.innerHTML = `
-        <label class="block text-xs text-neutral-400 font-medium">Select from your 5 Pantry Stock Items:</label>
-        <div class="flex flex-wrap gap-2" id="pantryChipsList">
-          ${userData.pantryItems.map(item => {
-            const isSelected = userData.activePantrySelections.includes(item);
-            return `
-              <button type="button" data-item="${item}" class="pantryChipBtn px-3 py-1 rounded-full text-xs font-medium border transition cursor-pointer ${
-                isSelected 
-                  ? 'bg-[#ebe3d5] text-[#1a1816] border-neutral-400' 
-                  : 'bg-[#1a1816] text-neutral-400 border-neutral-700 hover:border-neutral-500'
-              }">
-                ${isSelected ? '✓ ' : '+ '}${item}
-              </button>
-            `;
-          }).join('')}
-        </div>
+        <label class="block text-xs text-neutral-400 font-medium">${labelText}</label>
+        ${count > 0 ? `
+          <div class="flex flex-wrap gap-2" id="pantryChipsList">
+            ${userData.pantryItems.map(item => {
+              const isSelected = userData.activePantrySelections.includes(item);
+              return `
+                <button type="button" data-item="${item}" class="pantryChipBtn px-3 py-1 rounded-full text-xs font-medium border transition cursor-pointer ${
+                  isSelected 
+                    ? 'bg-[#ebe3d5] text-[#1a1816] border-neutral-400' 
+                    : 'bg-[#1a1816] text-neutral-400 border-neutral-700 hover:border-neutral-500'
+                }">
+                  ${isSelected ? '✓ ' : '+ '}${item}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        ` : ''}
       `;
 
       container.querySelectorAll(".pantryChipBtn").forEach(chip => {
-        chip.addEventListener("click", (e) => {
+        chip.onclick = (e) => {
           e.preventDefault();
           const item = chip.getAttribute("data-item");
           if (userData.activePantrySelections.includes(item)) {
@@ -283,13 +345,13 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           saveAppData(user, userData);
           renderPantrySelector();
-        });
+        };
       });
     }
   }
 
   // ----------------------------------------------------
-  // 6. RECIPE FINDER ENGINE
+  // 6. RECIPE FINDER (FIXED FIND MEALS BUTTON)
   // ----------------------------------------------------
   function findMatchingRecipes() {
     const ingInput = document.getElementById("ingredients");
@@ -298,16 +360,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const results = document.getElementById("recipeResults");
     const message = document.getElementById("recipeMessage");
 
-    if (!ingInput || !results) return;
+    if (!results) return;
 
     const currentUser = localStorage.getItem("cravecraftCurrentUser");
     const userData = currentUser ? getAppData(currentUser) : { activePantrySelections: [] };
 
-    const typed = ingInput.value.toLowerCase().split(",").map(i => i.trim()).filter(Boolean);
+    const typedText = ingInput ? ingInput.value : "";
+    const typed = typedText.toLowerCase().split(",").map(i => i.trim()).filter(Boolean);
     const available = Array.from(new Set([...typed, ...userData.activePantrySelections.map(i => i.toLowerCase().trim())]));
 
     if (available.length === 0) {
-      if (message) message.textContent = "Please enter ingredients or select pantry stock items above.";
+      if (message) message.textContent = "Please enter ingredients or select items from your pantry above.";
       results.replaceChildren();
       return;
     }
@@ -332,12 +395,12 @@ document.addEventListener("DOMContentLoaded", () => {
     results.replaceChildren();
 
     if (matches.length === 0) {
-      if (message) message.textContent = "No matches found. Try selecting more pantry items or increasing max time.";
+      if (message) message.textContent = "No matches found with current inputs. Try selecting more pantry items or increasing time.";
       return;
     }
 
     const top = matches.slice(0, 4);
-    if (message) message.textContent = `Found ${top.length} suggestion(s) matched to your kitchen ingredients!`;
+    if (message) message.textContent = `Found ${top.length} custom meal option(s) based on your kitchen stock!`;
 
     top.forEach(recipe => {
       const card = document.createElement("article");
@@ -348,7 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <h3 class="text-xl text-white serif-heading font-medium">${recipe.name}</h3>
         <p class="text-xs text-neutral-400">${recipe.description}</p>
         <p class="text-xs text-neutral-400">${recipe.time} mins prep · ${recipe.matchPct}% match</p>
-        <p class="text-xs text-neutral-300 font-medium">Ingredients available: ${recipe.matched.join(", ") || "None"}</p>
+        <p class="text-xs text-neutral-300 font-medium">Ingredients used: ${recipe.matched.join(", ") || "None"}</p>
         <button type="button" class="startCookBtn rounded-lg bg-[#ebe3d5] px-4 py-2.5 text-xs text-[#1a1816] font-medium hover:bg-white w-full cursor-pointer transition">Start Cooking Session</button>
       `;
 
@@ -357,10 +420,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  document.getElementById("findRecipes")?.addEventListener("click", findMatchingRecipes);
+  // FIX 3: Click listener bound directly to Find Recipes button
+  const findBtn = document.getElementById("findRecipes");
+  if (findBtn) {
+    findBtn.onclick = (e) => {
+      e.preventDefault();
+      findMatchingRecipes();
+    };
+  }
 
   // ----------------------------------------------------
-  // 7. DETAILED STEP-BY-STEP GUIDED COOKING (FIXED BUTTONS)
+  // 7. STEP-BY-STEP GUIDED COOKING
   // ----------------------------------------------------
   let activeRecipe = null;
   let currentStep = 0;
@@ -377,7 +447,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderStep() {
     if (!activeRecipe) return;
 
-    // Inject step details into cook screen safely
     const title = cookScreen?.querySelector("h1");
     const stepInd = cookScreen?.querySelector("span:nth-child(2)");
     const pBar = cookScreen?.querySelector(".w-full.bg-neutral-800 > div");
@@ -390,23 +459,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const doneBtn = cookScreen?.querySelector(".flex.gap-3.pt-4 button:nth-child(2)");
     if (doneBtn) {
-      doneBtn.textContent = currentStep === activeRecipe.steps.length - 1 ? "Finish Cook & Review" : "Next Step";
+      doneBtn.textContent = currentStep === activeRecipe.steps.length - 1 ? "Finish & Rate" : "Done";
     }
   }
 
-  // Exit Cook Session
   cookScreen?.querySelector(".flex.justify-between.items-center button")?.addEventListener("click", (e) => {
     e.preventDefault();
     showDashboard(localStorage.getItem("cravecraftCurrentUser") || "Chef");
   });
 
-  // Problem Helper Tip
   cookScreen?.querySelector(".flex.gap-3.pt-4 button:nth-child(1)")?.addEventListener("click", (e) => {
     e.preventDefault();
-    alert("CraveCraft Tip: If stove is smoking, reduce heat to medium-low immediately and stir gently!");
+    alert("CraveCraft Tip: Lower pan heat to medium-low and add a small splash of cooking oil if sticking!");
   });
 
-  // Next Step / Finish Button Handler
   cookScreen?.querySelector(".flex.gap-3.pt-4 button:nth-child(2)")?.addEventListener("click", (e) => {
     e.preventDefault();
     if (!activeRecipe) return;
@@ -420,7 +486,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Review Finish Handler
   function finishCooking() {
     const user = localStorage.getItem("cravecraftCurrentUser") || "Chef";
     const userData = getAppData(user);
@@ -451,13 +516,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const cards = document.querySelectorAll("#screen-dashboard .grid-cols-1.md\\:grid-cols-3 > div");
   if (cards.length >= 3) {
     cards[0].style.cursor = "pointer";
-    cards[0].addEventListener("click", openPantryModal);
+    cards[0].onclick = openPantryModal;
 
     cards[1].style.cursor = "pointer";
-    cards[1].addEventListener("click", openGalleryModal);
+    cards[1].onclick = openGalleryModal;
 
     cards[2].style.cursor = "pointer";
-    cards[2].addEventListener("click", openShareModal);
+    cards[2].onclick = openShareModal;
   }
 
   function updateDashboardUI() {
@@ -521,12 +586,12 @@ document.addEventListener("DOMContentLoaded", () => {
     showModal(`
       <h3 class="text-xl font-normal text-white serif-heading">Smart Pantry Manager</h3>
       <div class="flex flex-wrap gap-2 py-2">
-        ${userData.pantryItems.map((item, idx) => `
+        ${userData.pantryItems.length ? userData.pantryItems.map((item, idx) => `
           <span class="bg-[#1a1816] border border-neutral-700 px-3 py-1 rounded-full text-xs text-neutral-200 flex items-center gap-2">
             ${item}
             <button data-index="${idx}" class="removePantryItem hover:text-red-400 cursor-pointer">&times;</button>
           </span>
-        `).join("")}
+        `).join("") : '<p class="text-xs text-neutral-500 italic">Pantry is empty.</p>'}
       </div>
       <div class="flex gap-2 pt-2">
         <input type="text" id="newPantryInput" placeholder="Add item (e.g. potatoes)" class="bg-[#1a1816] border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white flex-1 focus:outline-none">
@@ -536,8 +601,8 @@ document.addEventListener("DOMContentLoaded", () => {
     `);
 
     document.querySelectorAll(".removePantryItem").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const idx = Number(e.target.getAttribute("data-index"));
+      btn.onclick = (e) => {
+        const idx = Number(btn.getAttribute("data-index"));
         const removed = userData.pantryItems[idx];
         userData.pantryItems.splice(idx, 1);
         userData.activePantrySelections = userData.activePantrySelections.filter(i => i !== removed);
@@ -545,7 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
         updateDashboardUI();
         renderPantrySelector();
         openPantryModal();
-      });
+      };
     });
 
     document.getElementById("addPantryBtn")?.addEventListener("click", (e) => {
@@ -584,12 +649,12 @@ document.addEventListener("DOMContentLoaded", () => {
     `);
 
     document.querySelectorAll(".shareSocialBtn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const dish = e.target.getAttribute("data-dish");
+      btn.onclick = (e) => {
+        const dish = btn.getAttribute("data-dish");
         const shareText = `I just cooked ${dish} on CraveCraft! 🍳✨ #CraveCraft`;
         navigator.clipboard.writeText(shareText);
         alert(`Copied post text to clipboard:\n\n"${shareText}"`);
-      });
+      };
     });
   }
 
@@ -669,7 +734,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // 9. CHATBOT TOGGLE & SCROLL UP BUTTON FIX
+  // 9. CHATBOT & INITIAL LOAD
   // ----------------------------------------------------
   const chatToggle = document.getElementById("cc-ai-toggle");
   const chatPanel = document.getElementById("cc-ai-panel");
@@ -687,15 +752,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (chatToggle) chatToggle.hidden = false;
   });
 
-  // Scroll UP button click listener
-  document.getElementById("scrollTopBtn")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
-
-  // ----------------------------------------------------
-  // INITIAL APP LOAD
-  // ----------------------------------------------------
   const savedUser = localStorage.getItem("cravecraftCurrentUser");
   if (savedUser) {
     showDashboard(savedUser);
