@@ -730,6 +730,52 @@ document.addEventListener("DOMContentLoaded", () => {
     if (chatPanel) chatPanel.hidden = true;
     if (chatToggle) chatToggle.hidden = false;
   });
+  const chatForm = document.getElementById("cc-ai-form");
+  const chatInput = document.getElementById("cc-ai-input");
+  const chatMessages = document.getElementById("cc-ai-messages");
+  const chatSend = document.getElementById("cc-ai-send");
+
+  chatForm?.addEventListener("submit", async (e) => {
+    e.preventDefault(); // Prevent the form from reloading the page
+
+    const message = chatInput?.value.trim();
+    if (!message) return;
+
+    const userMessage = document.createElement("p");
+    userMessage.className = "cc-ai-message cc-ai-user";
+    userMessage.textContent = message;
+    chatMessages.appendChild(userMessage);
+
+    chatInput.value = "";
+    chatSend.disabled = true;
+
+    const loadingMessage = document.createElement("p");
+    loadingMessage.className = "cc-ai-message cc-ai-assistant";
+    loadingMessage.textContent = "Thinking...";
+    chatMessages.appendChild(loadingMessage);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    try {
+      const response = await fetch("http://127.0.0.1:3001/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "The server returned an error.");
+
+      loadingMessage.textContent = data.answer;
+    } catch (error) {
+      loadingMessage.textContent =
+        "I couldn't reach the AI server. Check that it is running, then try again.";
+      console.error("CraveCraft chat error:", error);
+    } finally {
+      chatSend.disabled = false;
+      chatInput.focus();
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  });
 
   const savedUser = localStorage.getItem("cravecraftCurrentUser");
   if (savedUser) {
