@@ -10,4 +10,4 @@ To test the AI chatbot locally:
 3. Install dependencies and start the local server:
 ```bash
 node server.js
-4. Verify that the server is running on `http://localhost:3000` before using the chat interface.
+4. Verify that the server is running on `http://127.0.0.1:3001/api/health` before using the chat interface.
