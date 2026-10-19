@@ -7,10 +7,14 @@ const port = 3001;
 
 // Allow your local Live Server page to contact this local server.
 app.use(cors({
+
   origin: [
     "http://127.0.0.1:5500",
-    "http://localhost:5500"
+    "http://localhost:5500",
+    "http://127.0.0.1:5501",
+    "http://localhost:5501"
   ]
+
 }));
 
 app.use(express.json());
